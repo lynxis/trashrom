@@ -26,15 +26,6 @@
 #include "flash.h"
 #include "programmer.h"
 
-#define MAX_ROMLAYOUT	32
-
-typedef struct {
-	chipoff_t start;
-	chipoff_t end;
-	unsigned int included;
-	char name[256];
-} romentry_t;
-
 /* rom_entries store the entries specified in a layout file and associated run-time data */
 static romentry_t rom_entries[MAX_ROMLAYOUT];
 static int num_rom_entries = 0; /* the number of successfully parsed rom_entries */
@@ -115,7 +106,7 @@ static int find_include_arg(const char *const name)
 /* register an include argument (-i) for later processing */
 int register_include_arg(char *name)
 {
-	if (num_include_args >= MAX_ROMLAYOUT) {
+    if (num_include_args >= MAX_ROMLAYOUT) {
 		msg_gerr("Too many regions included (%i).\n", num_include_args);
 		return 1;
 	}
@@ -291,4 +282,13 @@ int build_new_image(const struct flashctx *flash, uint8_t *oldcontents, uint8_t 
 			break;
 	}
 	return 0;
+}
+
+void get_rom_entries(romentry_t **ret, int *length) {
+    if (!ret)
+        return;
+    if (!length)
+        return;
+    *ret = rom_entries;
+    *length = num_rom_entries;
 }

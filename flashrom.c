@@ -1434,7 +1434,7 @@ static int erase_and_write_block_helper(struct flashctx *flash,
 	return ret;
 }
 
-static int walk_eraseregions(struct flashctx *flash, int erasefunction,
+static int walk_eraseregions_offset_len(struct flashctx *flash, int erasefunction,
 			     int (*do_something) (struct flashctx *flash,
 						  unsigned int addr,
 						  unsigned int len,
@@ -1444,33 +1444,50 @@ static int walk_eraseregions(struct flashctx *flash, int erasefunction,
 							struct flashctx *flash,
 							unsigned int addr,
 							unsigned int len)),
-			     void *param1, void *param2)
+           void *oldcontent, void *newcontent, unsigned offset, unsigned len)
 {
-	int i, j;
-	unsigned int start = 0;
-	unsigned int len;
+  int i, j;
+  unsigned int start = 0;
+  unsigned int eraselen;
 	struct block_eraser eraser = flash->chip->block_erasers[erasefunction];
 
 	for (i = 0; i < NUM_ERASEREGIONS; i++) {
 		/* count==0 for all automatically initialized array
 		 * members so the loop below won't be executed for them.
 		 */
-		len = eraser.eraseblocks[i].size;
-		for (j = 0; j < eraser.eraseblocks[i].count; j++) {
+    eraselen = eraser.eraseblocks[i].size;
+    for (j = 0; j < eraser.eraseblocks[i].count; j++, start += eraselen) {
+      if (start < offset)
+        continue;
+
 			/* Print this for every block except the first one. */
 			if (i || j)
 				msg_cdbg(", ");
 			msg_cdbg("0x%06x-0x%06x", start,
-				     start + len - 1);
-			if (do_something(flash, start, len, param1, param2,
+             start + eraselen - 1);
+      if (do_something(flash, start, eraselen, oldcontent, newcontent,
 					 eraser.block_erase)) {
 				return 1;
-			}
-			start += len;
+      }
 		}
 	}
 	msg_cdbg("\n");
 	return 0;
+}
+
+static int walk_eraseregions(struct flashctx *flash, int erasefunction,
+           int (*do_something) (struct flashctx *flash,
+              unsigned int addr,
+              unsigned int len,
+              uint8_t *param1,
+              uint8_t *param2,
+              int (*erasefn) (
+              struct flashctx *flash,
+              unsigned int addr,
+              unsigned int len)),
+           void *oldcontent, void *newcontent)
+{
+  return walk_eraseregions_offset_len(flash, erasefunction, do_something, oldcontent, newcontent, 0, flash->chip->total_size);
 }
 
 static int check_block_eraser(const struct flashctx *flash, int k, int log)
@@ -1484,7 +1501,7 @@ static int check_block_eraser(const struct flashctx *flash, int k, int log)
 	}
 	if (!eraser.block_erase && eraser.eraseblocks[0].count) {
 		if (log)
-			msg_cdbg("eraseblock layout is known, but matching "
+            msg_cdbg("eraseblock layout is known, but matching "
 				 "block erase function is not implemented. ");
 		return 1;
 	}
@@ -1502,7 +1519,7 @@ int erase_and_write_flash(struct flashctx *flash, uint8_t *oldcontents, uint8_t 
 {
 	int k, ret = 1;
 	uint8_t *curcontents;
-	unsigned long size = flash->chip->total_size * 1024;
+    unsigned long size = flash->chip->total_size * 1024;
 	unsigned int usable_erasefunctions = count_usable_erasers(flash);
 
 	msg_cinfo("Erasing and writing flash chip... ");
@@ -1528,7 +1545,7 @@ int erase_and_write_flash(struct flashctx *flash, uint8_t *oldcontents, uint8_t 
 		ret = walk_eraseregions(flash, k, &erase_and_write_block_helper,
 					curcontents, newcontents);
 		/* If everything is OK, don't try another erase function. */
-		if (!ret)
+    if (!ret)
 			break;
 		/* Write/erase failed, so try to find out what the current chip
 		 * contents are. If no usable erase functions remain, we can
@@ -1846,7 +1863,7 @@ int chip_safety_check(const struct flashctx *flash, int force, int read_it, int 
 	if (read_it || erase_it || write_it || verify_it) {
 		/* Everything needs read. */
 		if (chip->tested.read == BAD) {
-			msg_cerr("Read is not working on this chip. ");
+            msg_cerr("Read is not working on this chip. ");
 			if (!force)
 				return 1;
 			msg_cerr("Continuing anyway.\n");
@@ -1895,6 +1912,75 @@ int chip_safety_check(const struct flashctx *flash, int force, int read_it, int 
 	return 0;
 }
 
+
+int write_flash(struct flashctx *flash, const char *filename) {
+    int ret = 0;
+    romentry_t *romentries;
+    int romentries_len;
+    size_t flashsize = flash->chip->total_size * 1024;
+    int i;
+    /* we alloc here the whole flashsize to be sure we have enought space */
+    uint8_t *oldcontents = malloc(flashsize);
+    uint8_t *newcontents = malloc(flashsize);
+    memset(oldcontents, 0x00, flashsize);
+    memset(newcontents, 0xff, flashsize);
+    printf("LYNX: %s %d\n", __FILE__, __LINE__);
+    if(read_buf_from_file(newcontents, flashsize, filename)) {
+        msg_cerr("Can not read file %s\n. Aborting.\n", filename);
+        return -1;
+    }
+
+    get_rom_entries(&romentries, &romentries_len);
+    printf("LYNX: %p %d\n", romentries, romentries_len);
+
+    for (i=0; i < romentries_len; i++, romentries++) {
+        chipoff_t start = romentries->start;
+        chipoff_t end = romentries->end;
+        chipsize_t length = end - start;
+
+        printf("LYNX: %s %d %p %d\n", __FILE__, __LINE__, romentries, romentries->included);
+
+        /* ignore entries not included */
+        if (!romentries->included)
+            continue;
+
+        // read specified flash region
+        ret = flash->chip->read(flash, newcontents, start, length);
+        if(ret) {
+            msg_cerr("Can not read flash position 0x%x len: 0x%x\n. Ret: %d Ignoring.\n", start, length, ret);
+            continue;
+        }
+
+        // diff blocks
+        // try to erase and write our block
+        int k;
+        for (k = 0; k < NUM_ERASEFUNCTIONS; k++) {
+            if (k != 0)
+                msg_cinfo("Looking for another erase function.\n");
+
+            msg_cdbg("Trying erase function %i... ", k);
+            if (check_block_eraser(flash, k, 1))
+                continue;
+
+            ret = walk_eraseregions_offset_len(flash, k, &erase_and_write_block_helper, oldcontents, newcontents, start, length);
+
+            /* If everything is OK, don't try another erase function. */
+            if (!ret)
+                break;
+        }
+
+        if (!ret) {
+            msg_cinfo("Finished flashing %d - region %s", ret, romentries->name);
+        }
+    }
+
+    return 0;
+}
+
+int verify(struct flashctx *flash, char *filename) {
+    return 0;
+}
+
 /* This function signature is horrible. We need to design a better interface,
  * but right now it allows us to split off the CLI code.
  * Besides that, the function itself is a textbook example of abysmal code flow.
@@ -1916,12 +2002,16 @@ int doit(struct flashctx *flash, int force, const char *filename, int read_it,
 		msg_cerr("Requested regions can not be handled. Aborting.\n");
 		return 1;
 	}
-
 	/* Given the existence of read locks, we want to unlock for read,
 	 * erase and write.
 	 */
 	if (flash->chip->unlock)
 		flash->chip->unlock(flash);
+
+    if (write_it) {
+        return write_flash(flash, filename);
+    }
+    msg_cerr("NOT RETURNING");
 
 	if (read_it) {
 		return read_flash_to_file(flash, filename);
