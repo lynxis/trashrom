@@ -1976,6 +1976,19 @@ int write_flash(struct flashctx *flash, const char *filename) {
 		return -1;
 	}
 
+#if CONFIG_INTERNAL == 1
+  /* FIXME: move this code into a small function and move it out of write_flash */
+		if (programmer == PROGRAMMER_INTERNAL && cb_check_image(newcontents, flashsize) < 0) {
+			if (force_boardmismatch) {
+				msg_pinfo("Proceeding anyway because user forced us to.\n");
+			} else {
+				msg_perr("Aborting. You can override this with "
+					 "-p internal:boardmismatch=force.\n");
+				return 1;
+			}
+		}
+#endif
+
 	for (i=0; i < num_rom_entries; i++) {
 		chipoff_t start = rom_entries[i].start;
 		chipoff_t end = rom_entries[i].end;
@@ -2065,7 +2078,6 @@ int doit(struct flashctx *flash, int force, const char *filename, int read_it,
 {
 
 	int ret = 0;
-	unsigned long size = flash->chip->total_size * 1024;
 
 	if (chip_safety_check(flash, force, read_it, write_it, erase_it, verify_it)) {
 		msg_cerr("Aborting.\n");
@@ -2086,18 +2098,6 @@ int doit(struct flashctx *flash, int force, const char *filename, int read_it,
 	if (read_it) {
 		return read_flash(flash, filename);
 	}
-
-#if CONFIG_INTERNAL == 1
-		if (programmer == PROGRAMMER_INTERNAL && cb_check_image(newcontents, size) < 0) {
-			if (force_boardmismatch) {
-				msg_pinfo("Proceeding anyway because user forced us to.\n");
-			} else {
-				msg_perr("Aborting. You can override this with "
-					 "-p internal:boardmismatch=force.\n");
-				return 1;
-			}
-		}
-#endif
 
 	/* FIXME: Make (!erase_it & write_it) really sense??? */
 	if (write_it && erase_it) {
