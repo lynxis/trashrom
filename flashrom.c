@@ -2111,8 +2111,7 @@ int doit(struct flashctx *flash, int force, const char *filename, int read_it,
 		return read_flash(flash, filename);
 	}
 
-	/* FIXME: Make (!erase_it & write_it) really sense??? */
-	if (write_it && erase_it) {
+	if (write_it) {
 		ret = write_flash(flash, filename);
 		if (ret)
 			return ret;
