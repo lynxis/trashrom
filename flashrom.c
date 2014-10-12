@@ -1929,6 +1929,40 @@ int chip_safety_check(const struct flashctx *flash, int force, int read_it, int 
 	return 0;
 }
 
+int read_flash(struct flashctx *flash, const char *filename) {
+	int ret = 0;
+	int err = 0; /* used as ret for read_flash if a single partition fails */
+	size_t flashsize = flash->chip->total_size * 1024;
+	int i;
+
+	uint8_t *contents = calloc(1, flashsize);
+
+	for (i=0; i < num_rom_entries; i++) {
+		chipoff_t start = rom_entries[i].start;
+		chipoff_t end = rom_entries[i].end;
+		chipsize_t length = end - start;
+
+		/* ignore entries not included */
+		if (!rom_entries[i].included)
+			continue;
+
+		ret = flash->chip->read(flash, contents, start, length);
+		if (ret) {
+			msg_cerr("Read for part %s (0x%x - 0x%x) failed!", rom_entries[i].name, start, end);
+			err = -1;
+			continue;
+		}
+	}
+
+	ret = write_buf_to_file(contents, flashsize, filename);
+	if (ret) {
+		msg_cerr("Writing to file %s failed!", filename);
+		err = -1;
+	}
+
+	free(contents);
+	return err;
+}
 
 int write_flash(struct flashctx *flash, const char *filename) {
 	int ret = 0;
