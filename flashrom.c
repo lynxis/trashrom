@@ -1935,8 +1935,8 @@ int write_flash(struct flashctx *flash, const char *filename) {
 	size_t flashsize = flash->chip->total_size * 1024;
 	int i;
 	/* we alloc here the whole flashsize to be sure we have enought space */
-	uint8_t *oldcontents = malloc(flashsize);
-	uint8_t *newcontents = malloc(flashsize);
+	uint8_t *oldcontents = calloc(1, flashsize);
+	uint8_t *newcontents = calloc(1, flashsize);
 	memset(oldcontents, 0x00, flashsize);
 	memset(newcontents, 0xff, flashsize);
 
