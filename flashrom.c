@@ -1917,6 +1917,68 @@ int chip_safety_check(const struct flashctx *flash, int force, int read_it, int 
 	return 0;
 }
 
+
+int write_flash(struct flashctx *flash, const char *filename) {
+	int ret = 0;
+	size_t flashsize = flash->chip->total_size * 1024;
+	int i;
+	/* we alloc here the whole flashsize to be sure we have enought space */
+	uint8_t *oldcontents = malloc(flashsize);
+	uint8_t *newcontents = malloc(flashsize);
+	memset(oldcontents, 0x00, flashsize);
+	memset(newcontents, 0xff, flashsize);
+
+	if(read_buf_from_file(newcontents, flashsize, filename)) {
+		msg_cerr("Can not read file %s\n. Aborting.\n", filename);
+		return -1;
+	}
+
+	for (i=0; i < num_rom_entries; i++) {
+		chipoff_t start = rom_entries[i].start;
+		chipoff_t end = rom_entries[i].end;
+		chipsize_t length = end - start;
+
+		/* ignore entries not included */
+		if (!rom_entries[i].included)
+			continue;
+
+		// read specified flash region
+		ret = flash->chip->read(flash, newcontents, start, length);
+		if(ret) {
+			msg_cerr("Can not read flash position 0x%x len: 0x%x\n. Ret: %d Ignoring.\n", start, length, ret);
+			continue;
+		}
+
+		// diff blocks
+		// try to erase and write our block
+		int k;
+		for (k = 0; k < NUM_ERASEFUNCTIONS; k++) {
+			if (k != 0)
+				msg_cinfo("Looking for another erase function.\n");
+
+			msg_cdbg("Trying erase function %i... ", k);
+			if (check_block_eraser(flash, k, 1))
+				continue;
+
+			ret = walk_eraseregions_offset_len(flash, k, &erase_and_write_block_helper, oldcontents, newcontents, start, length);
+
+			/* If everything is OK, don't try another erase function. */
+			if (!ret)
+				break;
+		}
+
+		if (!ret) {
+			msg_cinfo("Finished flashing %d - region %s", ret, rom_entries[i].name);
+		}
+	}
+
+	return 0;
+}
+
+int verify(struct flashctx *flash, char *filename) {
+	return 0;
+}
+
 /* This function signature is horrible. We need to design a better interface,
  * but right now it allows us to split off the CLI code.
  * Besides that, the function itself is a textbook example of abysmal code flow.
