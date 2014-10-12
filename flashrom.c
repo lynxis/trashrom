@@ -2075,8 +2075,7 @@ int verify_flash(struct flashctx *flash, const char *filename) {
 int doit(struct flashctx *flash, int force, const char *filename, int read_it,
 	 int write_it, int erase_it, int verify_it)
 {
-	uint8_t *oldcontents;
-	uint8_t *newcontents;
+
 	int ret = 0;
 	unsigned long size = flash->chip->total_size * 1024;
 	int read_all_first = 1; /* FIXME: Make this configurable. */
@@ -2098,48 +2097,8 @@ int doit(struct flashctx *flash, int force, const char *filename, int read_it,
 		flash->chip->unlock(flash);
 
 	if (read_it) {
-		return read_flash_to_file(flash, filename);
+		return read_flash(flash, filename);
 	}
-
-	oldcontents = malloc(size);
-	if (!oldcontents) {
-		msg_gerr("Out of memory!\n");
-		exit(1);
-	}
-	/* Assume worst case: All bits are 0. */
-	memset(oldcontents, 0x00, size);
-	newcontents = malloc(size);
-	if (!newcontents) {
-		msg_gerr("Out of memory!\n");
-		exit(1);
-	}
-	/* Assume best case: All bits should be 1. */
-	memset(newcontents, 0xff, size);
-	/* Side effect of the assumptions above: Default write action is erase
-	 * because newcontents looks like a completely erased chip, and
-	 * oldcontents being completely 0x00 means we have to erase everything
-	 * before we can write.
-	 */
-
-	if (erase_it) {
-		/* FIXME: Do we really want the scary warning if erase failed?
-		 * After all, after erase the chip is either blank or partially
-		 * blank or it has the old contents. A blank chip won't boot,
-		 * so if the user wanted erase and reboots afterwards, the user
-		 * knows very well that booting won't work.
-		 */
-		if (erase_and_write_flash(flash, oldcontents, newcontents)) {
-			emergency_help_message();
-			ret = 1;
-		}
-		goto out;
-	}
-
-	if (write_it || verify_it) {
-		if (read_buf_from_file(newcontents, size, filename)) {
-			ret = 1;
-			goto out;
-		}
 
 #if CONFIG_INTERNAL == 1
 		if (programmer == PROGRAMMER_INTERNAL && cb_check_image(newcontents, size) < 0) {
@@ -2148,85 +2107,25 @@ int doit(struct flashctx *flash, int force, const char *filename, int read_it,
 			} else {
 				msg_perr("Aborting. You can override this with "
 					 "-p internal:boardmismatch=force.\n");
-				ret = 1;
-				goto out;
+				return 1;
 			}
 		}
 #endif
+
+	/* FIXME: Make (!erase_it & write_it) really sense??? */
+	if (write_it && erase_it) {
+		ret = write_flash(flash, filename);
+		if (ret)
+			return ret;
 	}
 
-	/* Read the whole chip to be able to check whether regions need to be
-	 * erased and to give better diagnostics in case write fails.
-	 * The alternative is to read only the regions which are to be
-	 * preserved, but in that case we might perform unneeded erase which
-	 * takes time as well.
-	 */
-	if (read_all_first) {
-		msg_cinfo("Reading old flash chip contents... ");
-		if (flash->chip->read(flash, oldcontents, 0, size)) {
-			ret = 1;
-			msg_cinfo("FAILED.\n");
-			goto out;
-		}
+	if (verify_it) {
+		ret = verify_flash(flash, filename);
+		if (ret)
+			return ret;
 	}
+
 	msg_cinfo("done.\n");
 
-	/* Build a new image taking the given layout into account. */
-	if (build_new_image(flash, read_all_first, oldcontents, newcontents)) {
-		msg_gerr("Could not prepare the data to be written, aborting.\n");
-		ret = 1;
-		goto out;
-	}
-
-	// ////////////////////////////////////////////////////////////
-
-	if (write_it && erase_and_write_flash(flash, oldcontents, newcontents)) {
-		msg_cerr("Uh oh. Erase/write failed.");
-		if (read_all_first) {
-			msg_cerr("Checking if anything has changed.\n");
-			msg_cinfo("Reading current flash chip contents... ");
-			if (!flash->chip->read(flash, newcontents, 0, size)) {
-				msg_cinfo("done.\n");
-				if (!memcmp(oldcontents, newcontents, size)) {
-					nonfatal_help_message();
-					ret = 1;
-					goto out;
-				}
-				msg_cerr("Apparently at least some data has changed.\n");
-			} else
-				msg_cerr("Can't even read anymore!\n");
-			emergency_help_message();
-			ret = 1;
-			goto out;
-		} else
-			msg_cerr("\n");
-		emergency_help_message();
-		ret = 1;
-		goto out;
-	}
-
-	/* Verify only if we either did not try to write (verify operation) or actually changed something. */
-	if (verify_it && (!write_it || !all_skipped)) {
-		msg_cinfo("Verifying flash... ");
-
-		if (write_it) {
-			/* Work around chips which need some time to calm down. */
-			programmer_delay(1000*1000);
-			ret = verify_range(flash, newcontents, 0, size);
-			/* If we tried to write, and verification now fails, we
-			 * might have an emergency situation.
-			 */
-			if (ret)
-				emergency_help_message();
-		} else {
-			ret = compare_range(newcontents, oldcontents, 0, size);
-		}
-		if (!ret)
-			msg_cinfo("VERIFIED.\n");
-	}
-
-out:
-	free(oldcontents);
-	free(newcontents);
 	return ret;
 }
