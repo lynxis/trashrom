@@ -2061,7 +2061,7 @@ int verify_flash(struct flashctx *flash, const char *filename) {
 		if (!rom_entries[i].included)
 			continue;
 
-	ret = verify_range(flash, filecontents, start, length);
+	ret = verify_range(flash, filecontents + start, start, length);
 	if (ret)
 		verified = -1;
 	}
