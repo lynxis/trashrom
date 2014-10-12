@@ -1596,7 +1596,7 @@ int erase_and_write_flash(struct flashctx *flash, uint8_t *oldcontents, uint8_t 
 	}
 	return ret;
 }
-
+/* FIXME: Unused!
 static void nonfatal_help_message(void)
 {
 	msg_gerr("Good, writing to the flash chip apparently didn't do anything.\n");
@@ -1613,7 +1613,7 @@ static void nonfatal_help_message(void)
 			 "the programmer and the flash chip. If you think the error is caused by flashrom\n"
 			 "please report this on IRC at chat.freenode.net (channel #flashrom) or\n"
 			 "mail flashrom@flashrom.org, thanks!\n");
-}
+} */
 
 static void emergency_help_message(void)
 {
