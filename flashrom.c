@@ -1956,11 +1956,20 @@ int write_flash(struct flashctx *flash, const char *filename) {
 	int ret = 0;
 	size_t flashsize = flash->chip->total_size * 1024;
 	int i;
-	/* we alloc here the whole flashsize to be sure we have enought space */
+
 	uint8_t *oldcontents = calloc(1, flashsize);
 	uint8_t *newcontents = calloc(1, flashsize);
+
+	/* Assume worst case: All bits are 0. */
 	memset(oldcontents, 0x00, flashsize);
+
+	/* Assume worst case: All bits are 0. */
 	memset(newcontents, 0xff, flashsize);
+	/* Side effect of the assumptions above: Default write action is erase
+	 * because newcontents looks like a completely erased chip, and
+	 * oldcontents being completely 0x00 means we have to erase everything
+	 * before we can write.
+	 */
 
 	if(read_buf_from_file(newcontents, flashsize, filename)) {
 		msg_cerr("Can not read file %s\n. Aborting.\n", filename);
@@ -2004,6 +2013,12 @@ int write_flash(struct flashctx *flash, const char *filename) {
 		} else {
 			msg_cerr("Failed flashing!");
 			emergency_help_message();
+		/* FIXME: Do we really want the scary warning if erase failed?
+		 * After all, after erase the chip is either blank or partially
+		 * blank or it has the old contents. A blank chip won't boot,
+		 * so if the user wanted erase and reboots afterwards, the user
+		 * knows very well that booting won't work.
+		 */
 		}
 	}
 
