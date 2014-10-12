@@ -1985,8 +1985,35 @@ int write_flash(struct flashctx *flash, const char *filename) {
 	return 0;
 }
 
-int verify(struct flashctx *flash, char *filename) {
-	return 0;
+int verify_flash(struct flashctx *flash, char *filename) {
+	int ret = 0;
+	int verified = 0;
+	size_t flashsize = flash->chip->total_size * 1024;
+	int i;
+
+	/* we alloc here the whole flashsize to be sure we have enought space */
+	uint8_t *filecontents = calloc(1, flashsize);
+
+	if(read_buf_from_file(filecontents, flashsize, filename)) {
+		msg_cerr("Can not read file %s\n. Aborting.\n", filename);
+		return -1;
+	}
+
+	for (i=0; i < num_rom_entries; i++) {
+		chipoff_t start = rom_entries[i].start;
+		chipoff_t end = rom_entries[i].end;
+		chipsize_t length = end - start;
+
+		/* ignore entries not included */
+		if (!rom_entries[i].included)
+			continue;
+
+	ret = verify_range(flash, filecontents, start, length);
+	if (ret)
+		verified = -1;
+	}
+
+	return verified;
 }
 
 /* This function signature is horrible. We need to design a better interface,
