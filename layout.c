@@ -245,6 +245,16 @@ int normalize_romentries(const struct flashctx *flash)
 		}
 	}
 
+	/* create a partition over the complete flash when no layout given */
+	if (num_rom_entries == 0) {
+		rom_entries[0].start = 0x0;
+		rom_entries[0].end = flash->chip->total_size * 1024 - 1;
+		rom_entries[0].included = 1;
+		strncpy(rom_entries[0].name, "complete flash", 15);
+
+		num_rom_entries = 1;
+	}
+
 	return ret;
 }
 
