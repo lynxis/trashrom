@@ -1977,16 +1977,16 @@ int write_flash(struct flashctx *flash, const char *filename) {
 	}
 
 #if CONFIG_INTERNAL == 1
-  /* FIXME: move this code into a small function and move it out of write_flash */
-		if (programmer == PROGRAMMER_INTERNAL && cb_check_image(newcontents, flashsize) < 0) {
-			if (force_boardmismatch) {
-				msg_pinfo("Proceeding anyway because user forced us to.\n");
-			} else {
-				msg_perr("Aborting. You can override this with "
-					 "-p internal:boardmismatch=force.\n");
-				return 1;
-			}
+	/* FIXME: move this code into a small function and move it out of write_flash */
+	if (programmer == PROGRAMMER_INTERNAL && cb_check_image(newcontents, flashsize) < 0) {
+		if (force_boardmismatch) {
+			msg_pinfo("Proceeding anyway because user forced us to.\n");
+		} else {
+			msg_perr("Aborting. You can override this with "
+					"-p internal:boardmismatch=force.\n");
+			return 1;
 		}
+	}
 #endif
 
 	for (i=0; i < num_rom_entries; i++) {
