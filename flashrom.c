@@ -2011,7 +2011,7 @@ int write_flash(struct flashctx *flash, const char *filename) {
 			continue;
 
 		/* read specified flash region */
-		ret = flash->chip->read(flash, newcontents + start, start, length);
+		ret = flash->chip->read(flash, oldcontents + start, start, length);
 		if(ret) {
 			msg_cerr("Can not read flash position 0x%x len: 0x%x\n. Ret: %d Ignoring.\n", start, length, ret);
 			return -1;
