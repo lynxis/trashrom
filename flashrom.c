@@ -2007,7 +2007,7 @@ int write_flash(struct flashctx *flash, const char *filename) {
 	return 0;
 }
 
-int verify_flash(struct flashctx *flash, char *filename) {
+int verify_flash(struct flashctx *flash, const char *filename) {
 	int ret = 0;
 	int verified = 0;
 	size_t flashsize = flash->chip->total_size * 1024;
