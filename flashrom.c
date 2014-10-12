@@ -2001,6 +2001,9 @@ int write_flash(struct flashctx *flash, const char *filename) {
 
 		if (!ret) {
 			msg_cinfo("Finished flashing %d - region %s", ret, rom_entries[i].name);
+		} else {
+			msg_cerr("Failed flashing!");
+			emergency_help_message();
 		}
 	}
 
