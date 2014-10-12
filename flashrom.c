@@ -1434,43 +1434,65 @@ static int erase_and_write_block_helper(struct flashctx *flash,
 	return ret;
 }
 
-static int walk_eraseregions(struct flashctx *flash, int erasefunction,
-			     int (*do_something) (struct flashctx *flash,
-						  unsigned int addr,
-						  unsigned int len,
-						  uint8_t *param1,
-						  uint8_t *param2,
-						  int (*erasefn) (
-							struct flashctx *flash,
-							unsigned int addr,
-							unsigned int len)),
-			     void *param1, void *param2)
+static int walk_eraseregions_offset_len(
+		struct flashctx *flash, int erasefunction,
+		int (*do_something) (struct flashctx *flash,
+				unsigned int addr,
+				unsigned int len,
+				uint8_t *param1,
+				uint8_t *param2,
+				int (*erasefn) (
+					struct flashctx *flash,
+					unsigned int addr,
+					unsigned int len)
+				),
+		void *oldcontent,
+		void *newcontent,
+		unsigned offset,
+		unsigned len)
 {
 	int i, j;
 	unsigned int start = 0;
-	unsigned int len;
+	unsigned int eraselen;
 	struct block_eraser eraser = flash->chip->block_erasers[erasefunction];
 
 	for (i = 0; i < NUM_ERASEREGIONS; i++) {
 		/* count==0 for all automatically initialized array
 		 * members so the loop below won't be executed for them.
 		 */
-		len = eraser.eraseblocks[i].size;
-		for (j = 0; j < eraser.eraseblocks[i].count; j++) {
+		eraselen = eraser.eraseblocks[i].size;
+		for (j = 0; j < eraser.eraseblocks[i].count; j++, start += eraselen) {
+			if (start < offset)
+				continue;
+
 			/* Print this for every block except the first one. */
 			if (i || j)
 				msg_cdbg(", ");
-			msg_cdbg("0x%06x-0x%06x", start,
-				     start + len - 1);
-			if (do_something(flash, start, len, param1, param2,
-					 eraser.block_erase)) {
+			msg_cdbg("0x%06x-0x%06x", start, start + eraselen - 1);
+			if (do_something(flash, start, eraselen, oldcontent, newcontent, eraser.block_erase)) {
 				return 1;
 			}
-			start += len;
 		}
 	}
 	msg_cdbg("\n");
 	return 0;
+}
+
+static int walk_eraseregions(struct flashctx *flash, int erasefunction,
+		int (*do_something) (struct flashctx *flash,
+			unsigned int addr,
+			unsigned int len,
+			uint8_t *param1,
+			uint8_t *param2,
+			int (*erasefn) (
+				struct flashctx *flash,
+				unsigned int addr,
+				unsigned int len)
+			),
+		void *oldcontent,
+		void *newcontent)
+{
+	return walk_eraseregions_offset_len(flash, erasefunction, do_something, oldcontent, newcontent, 0, flash->chip->total_size);
 }
 
 static int check_block_eraser(const struct flashctx *flash, int k, int log)
