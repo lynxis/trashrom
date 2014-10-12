@@ -337,6 +337,16 @@ __attribute__((format(printf, 2, 3)));
 #define msg_cspew(...)	print(MSG_SPEW, __VA_ARGS__)	/* chip debug spew  */
 
 /* layout.c */
+
+#define MAX_ROMLAYOUT	32
+
+typedef struct {
+	chipoff_t start;
+	chipoff_t end;
+	unsigned int included;
+	char name[256];
+} romentry_t;
+
 int register_include_arg(char *name);
 int process_include_args(void);
 int read_romlayout(const char *name);

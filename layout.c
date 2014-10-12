@@ -26,15 +26,6 @@
 #include "flash.h"
 #include "programmer.h"
 
-#define MAX_ROMLAYOUT	32
-
-typedef struct {
-	chipoff_t start;
-	chipoff_t end;
-	unsigned int included;
-	char name[256];
-} romentry_t;
-
 /* rom_entries store the entries specified in a layout file and associated run-time data */
 static romentry_t rom_entries[MAX_ROMLAYOUT];
 static int num_rom_entries = 0; /* the number of successfully parsed rom_entries */
