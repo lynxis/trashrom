@@ -1934,7 +1934,7 @@ int read_flash(struct flashctx *flash, const char *filename) {
 		if (!rom_entries[i].included)
 			continue;
 
-		ret = flash->chip->read(flash, contents, start, length);
+		ret = flash->chip->read(flash, contents + start, start, length);
 		if (ret) {
 			msg_cerr("Read for part %s (0x%x - 0x%x) failed!", rom_entries[i].name, start, end);
 			err = -1;
@@ -1999,7 +1999,7 @@ int write_flash(struct flashctx *flash, const char *filename) {
 			continue;
 
 		/* read specified flash region */
-		ret = flash->chip->read(flash, newcontents, start, length);
+		ret = flash->chip->read(flash, newcontents + start, start, length);
 		if(ret) {
 			msg_cerr("Can not read flash position 0x%x len: 0x%x\n. Ret: %d Ignoring.\n", start, length, ret);
 			return -1;
