@@ -352,6 +352,9 @@ typedef struct {
 	char name[256];
 } romentry_t;
 
+extern romentry_t rom_entries[];
+extern int num_rom_entries;
+
 int register_include_arg(char *name);
 int process_include_args(void);
 int read_romlayout(const char *name);
