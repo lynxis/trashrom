@@ -1946,19 +1946,23 @@ int read_flash(struct flashctx *flash, const char *filename) {
 		if (!rom_entries[i].included)
 			continue;
 
+		msg_ginfo("Reading part %s (0x%x - 0x%x) ...", rom_entries[i].name, start, end);
 		ret = flash->chip->read(flash, contents + start, start, length);
 		if (ret) {
-			msg_cerr("Read for part %s (0x%x - 0x%x) failed!", rom_entries[i].name, start, end);
+			msg_cerr("ERROR\nRead part %s (0x%x - 0x%x) failed!", rom_entries[i].name, start, end);
 			err = -1;
 			continue;
 		}
+		msg_ginfo("done\n");
 	}
-
+	msg_ginfo("Finish reading flash parts\n");
+	msg_ginfo("Writing content to file...");
 	ret = write_buf_to_file(contents, flashsize, filename);
 	if (ret) {
 		msg_cerr("Writing to file %s failed!", filename);
 		err = -1;
 	}
+	msg_ginfo("done\n");
 
 	free(contents);
 	return err;
@@ -1975,7 +1979,7 @@ int write_flash(struct flashctx *flash, const char *filename) {
 	/* Assume worst case: All bits are 0. */
 	memset(oldcontents, 0x00, flashsize);
 
-	/* Assume worst case: All bits are 0. */
+	/* Assume worst case: All bits are ff. */
 	memset(newcontents, 0xff, flashsize);
 	/* Side effect of the assumptions above: Default write action is erase
 	 * because newcontents looks like a completely erased chip, and
@@ -2010,13 +2014,16 @@ int write_flash(struct flashctx *flash, const char *filename) {
 		if (!rom_entries[i].included)
 			continue;
 
+		msg_cinfo("Reading old content part %s (0x%x - 0x%x) length 0x%x...", rom_entries[i].name, start, end, length);
 		/* read specified flash region */
 		ret = flash->chip->read(flash, oldcontents + start, start, length);
 		if(ret) {
-			msg_cerr("Can not read flash position 0x%x len: 0x%x\n. Ret: %d Ignoring.\n", start, length, ret);
+			msg_cerr("Can not read flash position 0x%x len: 0x%x\n. Ret: %d Abort.\n", start, length, ret);
 			return -1;
 		}
+		msg_cinfo("done\n");
 
+		msg_cinfo("Flasing part %s (0x%x - 0x%x) ...", rom_entries[i].name, start, end);
 		int k;
 		for (k = 0; k < NUM_ERASEFUNCTIONS; k++) {
 			if (k != 0)
@@ -2034,7 +2041,7 @@ int write_flash(struct flashctx *flash, const char *filename) {
 		}
 
 		if (!ret) {
-			msg_cinfo("Finished flashing %d - region %s", ret, rom_entries[i].name);
+			msg_cinfo("done\n");
 		} else {
 			msg_cerr("Failed flashing!");
 			emergency_help_message();
@@ -2073,11 +2080,18 @@ int verify_flash(struct flashctx *flash, const char *filename) {
 		if (!rom_entries[i].included)
 			continue;
 
-	ret = verify_range(flash, filecontents + start, start, length);
-	if (ret)
-		verified = -1;
+		msg_cinfo("Verify part %s (0x%x - 0x%x) ...", rom_entries[i].name, start, end);
+		ret = verify_range(flash, filecontents + start, start, length);
+		if (ret) {
+			msg_cinfo("failed!\n");
+			verified = -1;
+		} else {
+			msg_cinfo("done\n");
+		}
 	}
 
+	if (!verified)
+		msg_cinfo("All parts verified.\n");
 	return verified;
 }
 
