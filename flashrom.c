@@ -1928,7 +1928,7 @@ int read_flash(struct flashctx *flash, const char *filename) {
 	for (i=0; i < num_rom_entries; i++) {
 		chipoff_t start = rom_entries[i].start;
 		chipoff_t end = rom_entries[i].end;
-		chipsize_t length = end - start;
+		chipsize_t length = end - start + 1;
 
 		/* ignore entries not included */
 		if (!rom_entries[i].included)
@@ -1992,7 +1992,7 @@ int write_flash(struct flashctx *flash, const char *filename) {
 	for (i=0; i < num_rom_entries; i++) {
 		chipoff_t start = rom_entries[i].start;
 		chipoff_t end = rom_entries[i].end;
-		chipsize_t length = end - start;
+		chipsize_t length = end - start + 1;
 
 		/* ignore entries not included */
 		if (!rom_entries[i].included)
@@ -2055,7 +2055,7 @@ int verify_flash(struct flashctx *flash, const char *filename) {
 	for (i=0; i < num_rom_entries; i++) {
 		chipoff_t start = rom_entries[i].start;
 		chipoff_t end = rom_entries[i].end;
-		chipsize_t length = end - start;
+		chipsize_t length = end - start + 1;
 
 		/* ignore entries not included */
 		if (!rom_entries[i].included)
