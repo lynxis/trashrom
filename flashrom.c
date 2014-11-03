@@ -2105,7 +2105,7 @@ int doit(struct flashctx *flash, int force, const char *filename, int read_it,
 			return ret;
 	}
 
-	if (verify_it) {
+	if (write_it || verify_it) {
 		ret = verify_flash(flash, filename);
 		if (ret)
 			return ret;
