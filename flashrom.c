@@ -1975,9 +1975,13 @@ int write_flash(struct flashctx *flash, const char *filename) {
 	 * before we can write.
 	 */
 
-	if(read_buf_from_file(newcontents, flashsize, filename)) {
-		msg_cerr("Can not read file %s\n. Aborting.\n", filename);
-		return -1;
+	if(filename != NULL) {
+		if(read_buf_from_file(newcontents, flashsize, filename)) {
+			msg_cerr("Can not read file %s\n. Aborting.\n", filename);
+			return -1;
+		}
+	} else {
+		msg_ginfo("Erasing flash\n");
 	}
 
 #if CONFIG_INTERNAL == 1
@@ -2111,6 +2115,10 @@ int doit(struct flashctx *flash, int force, const char *filename, int read_it,
 
 	if (read_it) {
 		return read_flash(flash, filename);
+	}
+
+	if (erase_it) {
+		return write_flash(flash, filename);
 	}
 
 	if (write_it) {
