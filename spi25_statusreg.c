@@ -24,6 +24,7 @@
 #include "flash.h"
 #include "chipdrivers.h"
 #include "spi.h"
+#include <stdio.h>
 
 /* === Generic functions === */
 int spi_write_status_enable(struct flashctx *flash)
@@ -285,6 +286,21 @@ void spi_prettyprint_status_register_bit(uint8_t status, int bit)
 int spi_prettyprint_status_register_plain(struct flashctx *flash)
 {
 	uint8_t status = spi_read_status_register(flash);
+	printf("a1.SR=0x%02x\n", status);
+	if (0 == (status & 0x80)) {
+                spi_write_status_register(flash, status | 0x9c);
+		status = spi_read_status_register(flash);
+		printf("a4.SR=0x%02x\n", status);
+	} else if (0 == status) {
+		spi_write_status_register(flash, status | (1<<7));
+		status = spi_read_status_register(flash);
+		printf("a2.SR=0x%02x\n", status);
+	} else if (status & 0x80) {
+		spi_write_status_register(flash, status & 0x7f);
+		status = spi_read_status_register(flash);
+		printf("a3.SR=0x%02x\n", status);
+	}
+
 	spi_prettyprint_status_register_hex(status);
 	return 0;
 }
@@ -347,6 +363,17 @@ int spi_prettyprint_status_register_bp3_srwd(struct flashctx *flash)
 	spi_prettyprint_status_register_bit(status, 6);
 	spi_prettyprint_status_register_bp(status, 3);
 	spi_prettyprint_status_register_welwip(status);
+
+	printf("b1.SR=0x%02x\n", status);
+	if (0 == (status & 0x80)) {
+		spi_write_status_register(flash, status | 0x9c);
+		status = spi_read_status_register(flash);
+		printf("b2.SR=0x%02x\n", status);
+	} else if (status & 0x80) {
+		spi_write_status_register(flash, status & 0x7f);
+		status = spi_read_status_register(flash);
+		printf("b3.SR=0x%02x\n", status);
+	}
 	return 0;
 }
 
@@ -678,6 +705,7 @@ static void spi_prettyprint_status_register_sst25_common(uint8_t status)
 {
 	spi_prettyprint_status_register_hex(status);
 
+	printf("4.SR=0x%02x\n", status);
 	spi_prettyprint_status_register_bpl(status);
 	msg_cdbg("Chip status register: Auto Address Increment Programming (AAI) is %sset\n",
 		 (status & (1 << 6)) ? "" : "not ");
